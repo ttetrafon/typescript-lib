@@ -1,4 +1,4 @@
-import type { SessionData } from '../types';
+import type { JWTPayload, SessionData } from '../types';
 
 // KV keys
 const PASSWORD_HASH_KEY = 'auth:password_hash';
@@ -292,17 +292,6 @@ export function getSessionFromCookie(cookieHeader: string | null): string | null
 // JWT utilities
 // =============================================================================
 
-export interface JWTPayload {
-  sub: number;
-  username: string;
-  display: string | null;
-  login_type: string;
-  role: string;
-  permissions: number;
-  iat: number;
-  exp: number;
-}
-
 const JWT_DURATION_S = 7 * 24 * 60 * 60; // 7 days
 const JWT_COOKIE_NAME = 'token';
 
@@ -327,8 +316,8 @@ function base64urlToStr(str: string): string {
 /**
  * Create a signed JWT containing user info
  */
-export async function createJWT(
-  payload: Omit<JWTPayload, 'iat' | 'exp'>,
+export async function createJWT<T extends JWTPayload>(
+  payload: Omit<T, 'iat' | 'exp'>,
   secret: string
 ): Promise<string> {
   const header = strToBase64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -345,7 +334,7 @@ export async function createJWT(
 /**
  * Verify a JWT and return its payload, or null if invalid/expired
  */
-export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
+export async function verifyJWT<T extends JWTPayload>(token: string, secret: string): Promise<T | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
@@ -364,7 +353,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
   }
   if (diff !== 0) return null;
 
-  const decoded = JSON.parse(base64urlToStr(body)) as JWTPayload;
+  const decoded = JSON.parse(base64urlToStr(body)) as T;
   if (Date.now() / 1000 > decoded.exp) return null;
 
   return decoded;
