@@ -333,6 +333,7 @@ export async function createJWT<T extends JWTPayload>(
 
 /**
  * Verify a JWT and return its payload, or null if invalid/expired
+ * // TODO: add error handling and just return null if something happens?
  */
 export async function verifyJWT<T extends JWTPayload>(token: string, secret: string): Promise<T | null> {
   const parts = token.split('.');
