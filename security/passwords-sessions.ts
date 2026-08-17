@@ -205,7 +205,7 @@ export async function createSession(setSessionSecretCb: Function, secret: string
  */
 export async function verifySession(
   token: string,
-  getSessionDataCb: Function,
+  getSessionDataCb: Function | null,
   secret: string
 ): Promise<SessionData | null> {
   const parts = token.split('.');
@@ -223,9 +223,11 @@ export async function verifySession(
   if (isNaN(expiresAt) || Date.now() > expiresAt) return null;
 
   // Check if session exists in KV (not revoked)
-  const sessionData = await getSessionDataCb(`${SESSION_PREFIX}${sessionId}`);
-  // const sessionData = await kv.get(`${SESSION_PREFIX}${sessionId}`);
-  if (!sessionData) return null;
+  if (getSessionDataCb != null) {
+    const sessionData = await getSessionDataCb(`${SESSION_PREFIX}${sessionId}`);
+    // const sessionData = await kv.get(`${SESSION_PREFIX}${sessionId}`);
+    if (!sessionData) return null;
+  }
 
   return { sessionId, expiresAt };
 }
@@ -286,6 +288,21 @@ export function getSessionFromCookie(cookieHeader: string | null): string | null
     }
   }
   return null;
+}
+
+export function getPayloadFromCookie<T extends JWTPayload>(cookieHeader: string | null): T | null {
+  const token = getSessionFromCookie(cookieHeader);
+  if (!token) return null;
+
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+
+  const [, body] = parts;
+  try {
+    return JSON.parse(base64urlToStr(body)) as T;
+  } catch {
+    return null;
+  }
 }
 
 // =============================================================================
