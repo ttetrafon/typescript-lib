@@ -1,5 +1,5 @@
 export interface JWTPayload {
-  sub: string | number;
+  sub: number;
   username: string;
   iat: number;
   exp: number;
