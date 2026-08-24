@@ -164,7 +164,9 @@ async function signToken(data: string, secret: string): Promise<string> {
  * Verify an HMAC signature
  */
 async function verifySignature(data: string, signature: string, secret: string): Promise<boolean> {
+  console.log(`---> verifySignature(data=${data}, signature=${signature}, secret=${secret})`);
   const expectedSignature = await signToken(data, secret);
+  console.log("... expectedSignature:", expectedSignature);
   // Constant-time comparison
   if (signature.length !== expectedSignature.length) return false;
   let result = 0;
@@ -208,14 +210,18 @@ export async function verifySession(
   getSessionDataCb: Function | null,
   secret: string
 ): Promise<SessionData | null> {
+  console.log(`---> verifySession(token=${token}, secret=${secret})`);
   const parts = token.split('.');
+  console.log("... parts:", parts);
   if (parts.length !== 3) return null;
 
   const [sessionId, expiresAtStr, signature] = parts;
   const data = `${sessionId}.${expiresAtStr}`;
+  console.log("... data:", data);
 
   // Verify signature
   const isValid = await verifySignature(data, signature, secret);
+  console.log("... isValid:", isValid);
   if (!isValid) return null;
 
   // Check expiration
@@ -247,7 +253,7 @@ export async function invalidateSession(token: string, secret: string, getSessio
 // Cookie utilities
 // =============================================================================
 
-const SESSION_COOKIE_NAME = 'session';
+const SESSION_COOKIE_NAME = 'token';
 
 /**
  * Create a Set-Cookie header value for the session
@@ -278,9 +284,11 @@ export function clearSessionCookie(): string {
  * Extract session token from cookie header
  */
 export function getSessionFromCookie(cookieHeader: string | null): string | null {
+  console.log(`---> getSessionFromCookie(${cookieHeader})`);
   if (!cookieHeader) return null;
 
   const cookies = cookieHeader.split(';').map((c) => c.trim());
+  console.log("... cookies:", cookies);
   for (const cookie of cookies) {
     const [name, ...valueParts] = cookie.split('=');
     if (name === SESSION_COOKIE_NAME) {
