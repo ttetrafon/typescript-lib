@@ -1,8 +1,15 @@
 const template: HTMLTemplateElement = document.createElement('template');
+const componentName: string = "my-component";
 
 template.innerHTML = /*html*/`
 <style>
-  @import './styles.css';
+  :host {
+    /** :host here is used to style the web-component itself - note that outside styling have higher priority */
+    /** :host(:selector) can be used to apply conditional styling, e.g.: ':host(:hover)', ':host([disabled])', ':host(.blue)', etc */
+    display: block;
+  }
+
+  /** :host-context(<selector>) can be used to apply styling based on the component's parents; it applies when some parent matches the selector, e.g.: ':host-context(.dark-theme)' */
 </style>
 
 <div>...</div>
@@ -10,10 +17,13 @@ template.innerHTML = /*html*/`
 
 class Component extends HTMLElement {
   _shadow: ShadowRoot;
+  _initialised: boolean = false;
 
   constructor() {
+    // Note that the DOM cannot be affected within the constructor and instead such manipulations must be deferred to the lifecycle methods.
     super();
-    this._shadow = this.attachShadow({ mode: 'closed' });
+
+    this._shadow = this.attachShadow({ mode: 'open' });
     // The mode can be set to 'open' if we need the document to be able to access the shadow-dom internals.
     // Access happens through ths `shadowroot` property in the host.
     this._shadow.appendChild(template.content.cloneNode(true));
@@ -39,7 +49,15 @@ class Component extends HTMLElement {
     }
   }
   connectedCallback() {
-    // Triggered when the component is added to the DOM.
+    // Triggered when the component is added to the DOM. Note that this is not triggered when the element is created.
+    // Can be triggered multiple times, especially if the component is moved around.
+    if (!this._initialised) {
+      // ... initial setup
+      this._initialised = true;
+    }
+
+    // Note that custom elements cannot access custom properties or custom methods of another custom element from `connectedCallback` if the second element appears later in the DOM.
+    // This can be overcome by using `window.customElements.whenDefined('element-name').then(() => { ... })`.
   }
   disconnectedCallback() {
     // Triggered when the component is removed from the DOM.
@@ -52,4 +70,4 @@ class Component extends HTMLElement {
   }
 }
 
-window.customElements.define('my-component', Component);
+window.customElements.define(componentName, Component);
