@@ -13,30 +13,35 @@ export function compareObjects(o: any, p: any, skipFunctions: boolean = true) {
     return false;
 
   for (i = 0; i < keysO.length; ++i) {
-    if (o[keysO[i]] instanceof Array) {
-      if (!(p[keysO[i]] instanceof Array)) return false;
-      if (p[keysO[i]].sort().join('') !== o[keysO[i]].sort().join('')) return false;
+    const keyO = keysO[i];
+    const keyP = keysP[i];
+
+    if (keyO === undefined || keyP === undefined) return false;
+
+    if (o[keyO] instanceof Array) {
+      if (!(p[keyO] instanceof Array)) return false;
+      if (p[keyO].sort().join('') !== o[keyO].sort().join('')) return false;
     }
-    else if (o[keysO[i]] instanceof Date) {
-      if (!(p[keysO[i]] instanceof Date))
+    else if (o[keyO] instanceof Date) {
+      if (!(p[keyO] instanceof Date))
         return false;
-      if (('' + o[keysO[i]]) !== ('' + p[keysO[i]]))
+      if (('' + o[keyO]) !== ('' + p[keyO]))
         return false;
     }
-    else if (o[keysO[i]] instanceof Function) {
+    else if (o[keyO] instanceof Function) {
       if (skipFunctions) continue;
       else {
-        if (!(p[keysO[i]] instanceof Function)) return false
+        if (!(p[keyO] instanceof Function)) return false
       };
     }
-    else if (o[keysO[i]] instanceof Object) {
-      if (!(p[keysO[i]] instanceof Object)) return false;
-      if (o[keysO[i]] === o) {
-        if (p[keysO[i]] !== p) return false;
+    else if (o[keyO] instanceof Object) {
+      if (!(p[keyO] instanceof Object)) return false;
+      if (o[keyO] === o) {
+        if (p[keyO] !== p) return false;
       }
-      else if (compareObjects(o[keysO[i]], p[keysO[i]]) === false) return false;
+      else if (compareObjects(o[keyO], p[keyO]) === false) return false;
     }
-    if (o[keysO[i]] !== p[keysO[i]]) return false;
+    if (o[keyO] !== p[keyO]) return false;
   }
   return true;
 }

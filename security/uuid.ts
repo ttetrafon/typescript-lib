@@ -7,6 +7,8 @@ export function uuidv4(allowInsecure = false) {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     // Use getRandomValues for better entropy even without randomUUID
     const bytes = crypto.getRandomValues(new Uint8Array(16));
+    if (!bytes[6] || !bytes[8]) throw "Error creating uuidv4";
+
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     const hex = [...bytes].map(b => b.toString(16).padStart(2, '0'));

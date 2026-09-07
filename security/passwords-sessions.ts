@@ -216,6 +216,8 @@ export async function verifySession(
   if (parts.length !== 3) return null;
 
   const [sessionId, expiresAtStr, signature] = parts;
+  if (!sessionId || !expiresAtStr || !signature) return null;
+
   const data = `${sessionId}.${expiresAtStr}`;
   console.log("... data:", data);
 
@@ -306,6 +308,7 @@ export function getPayloadFromCookie<T extends JWTPayload>(cookieHeader: string 
   if (parts.length !== 3) return null;
 
   const [, body] = parts;
+  if (!body) return null;
   try {
     return JSON.parse(base64urlToStr(body)) as T;
   } catch {
@@ -372,6 +375,7 @@ export async function verifyJWT<T extends JWTPayload>(token: string, secret: str
   const expectedSig = bytesToBase64url(expectedBytes);
 
   // Constant-time comparison
+  if (!sig || !body) return null;
   if (sig.length !== expectedSig.length) return null;
   let diff = 0;
   for (let i = 0; i < sig.length; i++) {
