@@ -10,20 +10,14 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 export class Logger {
   static #instance: Logger | undefined;
   #logLevel: LogLevel;
-  #appName: string;
 
-  private constructor(logLevel: LogLevel, appName: string) {
+  private constructor(logLevel: LogLevel) {
     this.#logLevel = logLevel;
-    this.#appName = appName;
   }
 
-  public static getInstance(logLevel: LogLevel = 'error', appName: string = 'App'): Logger {
+  public static getInstance(): Logger {
     if (!Logger.#instance) {
-      Logger.#instance = new Logger(logLevel, appName);
-    }
-
-    if (Logger.#instance.#appName !== 'App' && Logger.#instance.#appName !== appName) {
-      Logger.#instance.#appName = appName;
+      Logger.#instance = new Logger('info');
     }
 
     return Logger.#instance;
@@ -46,7 +40,7 @@ export class Logger {
 
     const timestamp = new Date().toISOString();
     const modulePart = module ? `::${module}` : '';
-    const baseMsg = `[${timestamp}::${this.#appName}${modulePart}] ${res}`;
+    const baseMsg = `[${timestamp}${modulePart}] ${res}`;
 
     return stack ? `${baseMsg}\n${stack}` : baseMsg;
   }
@@ -65,13 +59,6 @@ export class Logger {
     if (this.shouldLog('info')) {
       console.info(this.formatMsg(msg, module));
     }
-  }
-
-  /**
-   * Alias for info() for backward compatibility.
-   */
-  public log(msg: string | Error, module?: string): void {
-    this.info(msg, module);
   }
 
   public warn(msg: string | Error, module?: string): void {

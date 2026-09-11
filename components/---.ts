@@ -1,3 +1,5 @@
+import { Logger } from "../services/logger";
+
 const template: HTMLTemplateElement = document.createElement('template');
 const componentName: string = "my-component";
 
@@ -19,6 +21,7 @@ template.innerHTML = /*html*/`
 class Component extends HTMLElement {
   _shadow: ShadowRoot;
   _initialised: boolean = false;
+  _l: Logger | undefined;
 
   constructor() {
     // Note that the DOM cannot be affected within the constructor and instead such manipulations must be deferred to the lifecycle methods.
@@ -41,7 +44,8 @@ class Component extends HTMLElement {
   set label(value: string | null) { this.setAttribute('label', value ?? ""); }
 
   // A web component implements the following lifecycle methods.
-  attributeChangedCallback(name: string, oldVal: string, newVal: any) {
+  attributeChangedCallback(name: string, oldVal: string, newVal: string) {
+    this._l?.debug(`---> attributeChangedCallback(${name}, ${oldVal}, ${newVal})`, componentName);
     // Attribute value changes can be tied to any type of functionality through the lifecycle methods.
     if (oldVal == newVal) return;
     switch (name) {
@@ -56,6 +60,8 @@ class Component extends HTMLElement {
       // ... initial setup
       this._initialised = true;
     }
+
+    this._l = Logger.getInstance();
 
     // Note that custom elements cannot access custom properties or custom methods of another custom element from `connectedCallback` if the second element appears later in the DOM.
     // This can be overcome by using `window.customElements.whenDefined('element-name').then(() => { ... })`.
