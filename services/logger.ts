@@ -25,7 +25,7 @@ export class Logger {
       res = msg;
     }
 
-    return `[${new Date().toUTCString()}::${this.#appName}${module ? '::' + module : ''}] res`;
+    return `[${new Date().toUTCString()}::${this.#appName}${module ? '::' + module : ''}] ${res}`;
   }
 
   async log(msg: string | Error, module: string | undefined = undefined): Promise<void> {
