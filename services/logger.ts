@@ -1,46 +1,88 @@
-export type LogLevel = 'debug' | 'info' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
 
 export class Logger {
-  #instance: Logger | undefined = undefined;
+  static #instance: Logger | undefined;
   #logLevel: LogLevel;
   #appName: string;
 
-  constructor(logLevel: LogLevel, appName: string) {
-    if (!this.#instance) {
-      this.#instance = this;
-    }
-
+  private constructor(logLevel: LogLevel, appName: string) {
     this.#logLevel = logLevel;
     this.#appName = appName;
-    return this.#instance;
   }
 
-  formatMsg(msg: Error | string, module: string | undefined) {
+  public static getInstance(logLevel: LogLevel = 'error', appName: string = 'App'): Logger {
+    if (!Logger.#instance) {
+      Logger.#instance = new Logger(logLevel, appName);
+    }
+
+    if (Logger.#instance.#appName !== 'App' && Logger.#instance.#appName !== appName) {
+      Logger.#instance.#appName = appName;
+    }
+
+    return Logger.#instance;
+  }
+
+  public setLevel(level: LogLevel): void {
+    this.#logLevel = level;
+  }
+
+  private formatMsg(msg: Error | string, module?: string): string {
     let res: string;
+    let stack: string | undefined = undefined;
 
     if (msg instanceof Error) {
       res = msg.message;
-    }
-    else {
+      stack = msg.stack;
+    } else {
       res = msg;
     }
 
-    return `[${new Date().toUTCString()}::${this.#appName}${module ? '::' + module : ''}] ${res}`;
+    const timestamp = new Date().toISOString();
+    const modulePart = module ? `::${module}` : '';
+    const baseMsg = `[${timestamp}::${this.#appName}${modulePart}] ${res}`;
+
+    return stack ? `${baseMsg}\n${stack}` : baseMsg;
   }
 
-  async log(msg: string | Error, module: string | undefined = undefined): Promise<void> {
-    if (this.#logLevel === 'error' || this.#logLevel === 'info') return;
-
-    console.log(this.formatMsg(msg, module));
+  private shouldLog(level: LogLevel): boolean {
+    return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.#logLevel];
   }
 
-  async warn(msg: string | Error, module: string | undefined = undefined): Promise<void> {
-    if (this.#logLevel == 'error') return;
-
-    console.warn(this.formatMsg(msg, module));
+  public debug(msg: string | Error, module?: string): void {
+    if (this.shouldLog('debug')) {
+      console.debug(this.formatMsg(msg, module));
+    }
   }
 
-  async error(msg: string | Error, module: string | undefined = undefined): Promise<void> {
-    console.log(this.formatMsg(msg, module));
+  public info(msg: string | Error, module?: string): void {
+    if (this.shouldLog('info')) {
+      console.info(this.formatMsg(msg, module));
+    }
+  }
+
+  /**
+   * Alias for info() for backward compatibility.
+   */
+  public log(msg: string | Error, module?: string): void {
+    this.info(msg, module);
+  }
+
+  public warn(msg: string | Error, module?: string): void {
+    if (this.shouldLog('warn')) {
+      console.warn(this.formatMsg(msg, module));
+    }
+  }
+
+  public error(msg: string | Error, module?: string): void {
+    if (this.shouldLog('error')) {
+      console.error(this.formatMsg(msg, module));
+    }
   }
 }
