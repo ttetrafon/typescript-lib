@@ -30,6 +30,8 @@ class Component extends HTMLElement {
     this._shadow = this.attachShadow({ mode: 'open' });
     // The mode can be set to 'open' if we need the document to be able to access the shadow-dom internals.
     // Access happens through ths `shadowroot` property in the host.
+
+    template.shadowRootDelegatesFocus = true; // focused can be delegated within the component from the outside
     this._shadow.appendChild(template.content.cloneNode(true));
   }
 
