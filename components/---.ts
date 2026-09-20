@@ -1,11 +1,14 @@
 import { Logger } from "../services/logger";
+import resetStyles from '../styles/reset.css?inline';
 
 const template: HTMLTemplateElement = document.createElement('template');
 const componentName: string = "my-component";
 
-// TODO: figure out how to import the main stylesheet?
+// TODO: import properly the reset stylesheet...
 template.innerHTML = /*html*/`
 <style>
+  ${resetStyles}
+
   :host {
     /** :host here is used to style the web-component itself - note that outside styling have higher priority */
     /** :host(:selector) can be used to apply conditional styling, e.g.: ':host(:hover)', ':host([disabled])', ':host(.blue)', ':host([size="small"])' etc */
