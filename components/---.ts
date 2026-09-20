@@ -3,6 +3,7 @@ import { Logger } from "../services/logger";
 const template: HTMLTemplateElement = document.createElement('template');
 const componentName: string = "my-component";
 
+// TODO: figure out how to import the main stylesheet?
 template.innerHTML = /*html*/`
 <style>
   :host {

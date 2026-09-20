@@ -8,7 +8,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 export class Logger {
-  static #instance: Logger | undefined;
+  static #instance: Logger;
   #logLevel: LogLevel;
 
   private constructor(logLevel: LogLevel) {
