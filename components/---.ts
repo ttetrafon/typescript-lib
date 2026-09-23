@@ -4,7 +4,6 @@ import resetStyles from '../styles/reset.css?inline';
 const template: HTMLTemplateElement = document.createElement('template');
 const componentName: string = "my-component";
 
-// TODO: import properly the reset stylesheet...
 template.innerHTML = /*html*/`
 <style>
   ${resetStyles}
