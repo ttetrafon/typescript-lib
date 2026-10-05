@@ -1,6 +1,8 @@
-import { Logger } from "../services/logger";
-import { Translations, Translator } from "../services/translator";
-import resetStyles from '../styles/reset.css?inline';
+import { Logger } from "../../services/logger";
+import { Translations, Translator } from "../../services/translator";
+import resetStyles from '../../styles/reset.css?inline';
+import componentStyles from './styles.css?inline';
+import templateHtml from './doc.html?raw';
 
 const template: HTMLTemplateElement = document.createElement('template');
 const componentName: string = "my-component";
@@ -8,18 +10,10 @@ const componentName: string = "my-component";
 template.innerHTML = /*html*/`
 <style>
   ${resetStyles}
-
-  :host {
-    /** :host here is used to style the web-component itself - note that outside styling have higher priority */
-    /** :host(:selector) can be used to apply conditional styling, e.g.: ':host(:hover)', ':host([disabled])', ':host(.blue)', ':host([size="small"])' etc */
-    display: block;
-  }
-
-  /** :host-context(<selector>) can be used to apply styling based on the component's parents; it applies when some parent matches the selector, e.g.: ':host-context(.dark-theme)' */
-  /** NOTE: Not currently supported in all browsers... */
+  ${componentStyles}
 </style>
 
-<div>...</div>
+${templateHtml}
 `;
 
 class Component extends HTMLElement {
