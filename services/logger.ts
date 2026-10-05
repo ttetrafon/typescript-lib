@@ -27,49 +27,53 @@ export class Logger {
     this.#logLevel = level;
   }
 
-  private formatMsg(msg: Error | string, module?: string): string {
-    let res: string;
-    let stack: string | undefined = undefined;
+  private formatMsg(...msgs: unknown[]): unknown[] {
+    const timestamp = new Date().toISOString();
+    const baseMsg = `[${timestamp}]`;
+    let res: unknown[] = [baseMsg];
 
-    if (msg instanceof Error) {
-      res = msg.message;
-      stack = msg.stack;
-    } else {
-      res = msg;
+    for (let i = 0; i < msgs.length; i++) {
+      let msg: unknown = msgs[i];
+
+      if (msg instanceof Error) {
+        res.push("Error message:", msg.name);
+        res.push("Error message:", msg.message);
+        if (msg.cause) res.push("Error cause:", msg.cause);
+        if (msg.stack) res.push("Error stack:", msg.stack);
+      }
+      else {
+        res.push(msg);
+      }
     }
 
-    const timestamp = new Date().toISOString();
-    const modulePart = module ? `::${module}` : '';
-    const baseMsg = `[${timestamp}${modulePart}] ${res}`;
-
-    return stack ? `${baseMsg}\n${stack}` : baseMsg;
+    return res;
   }
 
   private shouldLog(level: LogLevel): boolean {
     return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.#logLevel];
   }
 
-  public debug(msg: string | Error, module?: string): void {
+  public debug(...msgs: unknown[]): void {
     if (this.shouldLog('debug')) {
-      console.debug(this.formatMsg(msg, module));
+      console.debug(...this.formatMsg(...msgs));
     }
   }
 
-  public info(msg: string | Error, module?: string): void {
+  public info(...msgs: unknown[]): void {
     if (this.shouldLog('info')) {
-      console.info(this.formatMsg(msg, module));
+      console.info(...this.formatMsg(...msgs));
     }
   }
 
-  public warn(msg: string | Error, module?: string): void {
+  public warn(...msgs: unknown[]): void {
     if (this.shouldLog('warn')) {
-      console.warn(this.formatMsg(msg, module));
+      console.warn(...this.formatMsg(...msgs));
     }
   }
 
-  public error(msg: string | Error, module?: string): void {
+  public error(...msgs: unknown[]): void {
     if (this.shouldLog('error')) {
-      console.error(this.formatMsg(msg, module));
+      console.error(...this.formatMsg(...msgs));
     }
   }
 }
