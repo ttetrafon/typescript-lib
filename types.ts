@@ -1,3 +1,7 @@
+////////////////////////
+//   AUTHENTICATION   //
+////////////////////////
+
 export interface JWTPayload {
   sub: number;
   username: string;
@@ -10,7 +14,12 @@ export interface SessionData {
   expiresAt: number;
 }
 
+////////////////////
+//   NAVIGATION   //
+////////////////////
+
 export type PathType = 'WebPage' | 'Dialog';
+
 export type Route = {
   content: string;
   title: string;
@@ -26,4 +35,23 @@ export type RouteInfo = {
   canonicalUrl: string;
   structuredData: object;
   navData?: Record<string, unknown>;
+}
+
+///////////////
+//   STATE   //
+///////////////
+
+export type ObservableEntry = {
+  proxy: Record<string, object>;
+  listeners: Record<string, (subscriber: string, property: string, newValue: object | undefined) => void>;
+};
+
+export type BroadcastMessageType = 'create-observable' | 'receive-state' | 'request-state' | 'update-observable';
+
+export type BroadcastMessage = {
+  type: BroadcastMessageType;
+  name: string,
+  data: object,
+  prop?: string,
+  time: number,
 }
