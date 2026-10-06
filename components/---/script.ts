@@ -1,6 +1,6 @@
-import { Logger } from "../../services/logger";
-import { Translations, Translator } from "../../services/translator";
-import resetStyles from '../../styles/reset.css?inline';
+import { Logger } from "lib/services/logger";
+import { Translations, Translator } from "lib/services/translator";
+import resetStyles from 'lib/styles/reset.css?inline';
 import componentStyles from './styles.css?inline';
 import templateHtml from './doc.html?raw';
 
