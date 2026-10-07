@@ -33,7 +33,6 @@ export class State {
       name: "state",
       data: {}
     });
-    this.collectState();
   }
 
   public static getInstance(appName: string): State {
@@ -52,7 +51,7 @@ export class State {
 
   private async broadcastMessage(msg: BroadcastMessage) {
     this.#logger.debug(`---> State.broadcastMessage()`, msg);
-    this.observablesBroadcastChannel.postMessage(JSON.stringify(msg));
+    this.observablesBroadcastChannel.postMessage(msg);
   }
 
   /**
@@ -147,7 +146,7 @@ export class State {
 
   private async receiveBroadcastedMessage(event: MessageEvent) {
     this.#logger.debug(`---> receiveBroadcastedMessage()`, event);
-    let msg = JSON.parse(event.data) as BroadcastMessage;
+    let msg = event.data as BroadcastMessage;
 
     console.log("msg:", msg);
     switch (msg.type) {
