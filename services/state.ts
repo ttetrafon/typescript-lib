@@ -3,6 +3,7 @@ import { Logger } from "./logger";
 import { ObservableEntry, BroadcastMessage } from "lib/types";
 import { generalNamesLib } from "lib/data/enum";
 
+// TODO: improve state to support primitive as observable values, not only objects?
 export class State {
   static #instance: State;
   #logger: Logger;
@@ -49,12 +50,18 @@ export class State {
     return state;
   }
 
-  async broadcastMessage(msg: BroadcastMessage) {
+  private async broadcastMessage(msg: BroadcastMessage) {
     this.#logger.debug(`---> State.broadcastMessage()`, msg);
     this.observablesBroadcastChannel.postMessage(JSON.stringify(msg));
   }
 
-  createObservable(observable: string, obj: object, broadcastCreation = true) {
+  /**
+   * Create a new observable
+   * @param {string} observable: the observable's name
+   * @param {object} obj: the observable's value
+   * @param {boolean} broadcastCreation: if this is to be broadcast in the browser (using the broadcast channel); default=true
+   */
+  createObservable(observable: string, obj: object, broadcastCreation: boolean = true) {
     this.#logger.debug(`---> State.createObservable()`, observable, obj, broadcastCreation);
     let onChange = (property: string, newValue: object | undefined) => {
       this.#logger.debug(`Property '${property}' changed to ${JSON.stringify(newValue)} ... calling subscribers!:`, this.observables[observable].listeners);
@@ -101,22 +108,33 @@ export class State {
     this.#logger.debug("... observables:", this.observables);
   }
 
-  async getObservable(observable: string): Promise<unknown> {
+  /**
+   *
+   * @param {string} observable: the observable name
+   * @returns
+   */
+  async getObservable<T>(observable: string): Promise<T> {
     this.#logger.debug(`---> State.getObservable(${observable})`);
     if (Object.prototype.hasOwnProperty.call(this.observables, observable)) {
-      return cloneDeep(this.observables[observable].proxy);
+      return cloneDeep(this.observables[observable].proxy) as T;
     } else {
-      return {};
+      return {} as T;
     }
   }
 
-  async getValueFromObservable(observable: string, prop: string, retry: number = 0): Promise<unknown> {
+  /**
+   * Get a specific property value from an observable.
+   * @param {string} observable: the name of the observable object
+   * @param {string} prop: the property of the observable object
+   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here
+   * @returns
+   */
+  async getValueFromObservable<T>(observable: string, prop: string, retry: number = 0): Promise<T | null> {
     this.#logger.debug(`---> State.getValueFromObservable(${observable}, ${prop})`);
 
     if (Object.prototype.hasOwnProperty.call(this.observables, observable)) {
-      console.log("... getting value", this.observables[observable].proxy[prop]);
       let value = this.observables[observable].proxy[prop];
-      return cloneDeep(value);
+      return cloneDeep(value) as T;
     }
 
     if (retry < 10) {
@@ -127,7 +145,7 @@ export class State {
     return null;
   }
 
-  async receiveBroadcastedMessage(event: MessageEvent) {
+  private async receiveBroadcastedMessage(event: MessageEvent) {
     this.#logger.debug(`---> receiveBroadcastedMessage()`, event);
     let msg = JSON.parse(event.data) as BroadcastMessage;
 
@@ -178,6 +196,13 @@ export class State {
     }
   }
 
+  /**
+   * Subscribe to an observable and be notified of value changes.
+   * @param {string} observable: the name of the observable
+   * @param {string} subscriber: the name of the
+   * @param {function} callback: to be called when the observable is updated - don't forget to use .bind(this)
+   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here
+   */
   async subscribeToObservable(observable: string, subscriber: string, callback: (subscriber: string, property: string, newValue: unknown) => void, retry: number = 0) {
     this.#logger.debug(`---> subscribeToObservable(${observable}, ${subscriber})`);
     if (Object.prototype.hasOwnProperty.call(this.observables, observable) && !Object.prototype.hasOwnProperty.call(this.observables[observable].listeners, subscriber)) {
@@ -194,6 +219,11 @@ export class State {
     this.#logger.debug(`... this.observables[${observable}]:`, this.observables[observable]);
   }
 
+  /**
+   * Unsubscribe a specific listener from an observable.
+   * @param {string} observable: the observable's name
+   * @param {string} subscriber: the subscriber's name
+   */
   async unsubscribeFromObservable(observable: string, subscriber: string) {
     if (Object.prototype.hasOwnProperty.call(this.observables, observable) && Object.prototype.hasOwnProperty.call(this.observables[observable].listeners, subscriber)) {
       delete this.observables[observable].listeners[subscriber];
