@@ -138,7 +138,7 @@ export async function isPasswordConfigured(passwordHashCb: Function): Promise<bo
 /**
  * Generate a cryptographically secure random session ID
  */
-function generateSessionId(): string {
+export function generateSessionId(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
@@ -147,7 +147,7 @@ function generateSessionId(): string {
 /**
  * Create an HMAC signature for a session token
  */
-async function signToken(data: string, secret: string): Promise<string> {
+export async function signToken(data: string, secret: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -163,7 +163,7 @@ async function signToken(data: string, secret: string): Promise<string> {
 /**
  * Verify an HMAC signature
  */
-async function verifySignature(data: string, signature: string, secret: string): Promise<boolean> {
+export async function verifySignature(data: string, signature: string, secret: string): Promise<boolean> {
   console.log(`---> verifySignature(data=${data}, signature=${signature}, secret=${secret})`);
   const expectedSignature = await signToken(data, secret);
   console.log("... expectedSignature:", expectedSignature);
@@ -230,7 +230,7 @@ export async function verifySession(
   const expiresAt = parseInt(expiresAtStr, 10);
   if (isNaN(expiresAt) || Date.now() > expiresAt) return null;
 
-  // Check if session exists in KV (not revoked)
+  // Check if session is not revoked
   if (getSessionDataCb != null) {
     const sessionData = await getSessionDataCb(`${SESSION_PREFIX}${sessionId}`);
     // const sessionData = await kv.get(`${SESSION_PREFIX}${sessionId}`);
@@ -247,7 +247,6 @@ export async function invalidateSession(token: string, secret: string, getSessio
   const session = await verifySession(token, getSessionDataCb, secret);
   if (session) {
     await deleteSessionCb(`${SESSION_PREFIX}${session.sessionId}`);
-    // await kv.delete(`${SESSION_PREFIX}${session.sessionId}`);
   }
 }
 
