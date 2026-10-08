@@ -50,4 +50,4 @@ export type BroadcastMessage = {
   time: number;
 };
 
-export type Listener = (subscriber: string, property: string, updatedValue: any) => void;
+export type Listener = (subscriber: string, watchedPath: string, updatedValue: any) => void;

@@ -160,17 +160,17 @@ export class State {
    * @param {function} callback: to be called when the observable is updated - don't forget to use .bind(this)
    * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here
    */
-  async subscribeToObservable(observable: string, subscriber: string, callback: Listener, retry: number = 0) {
+  async subscribeToObservable(observable: string, subscriber: string, listeners: Record<string, Listener>, retry: number = 0) {
     this.#logger.debug(`---> subscribeToObservable(${observable}, ${subscriber})`);
     const obs: Observable = this.observables[observable];
     if (obs) {
-      obs.subscribe(subscriber, callback);
+      obs.subscribe(subscriber, listeners);
       return;
     }
 
     if (retry < 10) {
       setTimeout(async () => {
-        return await this.subscribeToObservable(observable, subscriber, callback, retry + 1);
+        return await this.subscribeToObservable(observable, subscriber, listeners, retry + 1);
       }, 1000);
     }
     this.#logger.debug(`... this.observables[${observable}]:`, this.observables[observable]);
@@ -181,11 +181,11 @@ export class State {
    * @param {string} observable: the observable's name
    * @param {string} subscriber: the subscriber's name
    */
-  async unsubscribeFromObservable(observable: string, subscriber: string, callback: Listener) {
+  async unsubscribeFromObservable(observable: string, subscriber: string, listeners?: string[]) {
     this.#logger.debug(`---> unsubscribeFromObservable(${observable}, ${subscriber})`);
     const obs: Observable = this.observables[observable];
     if (obs) {
-      obs.unsubscribe(subscriber, callback);
+      obs.unsubscribe(subscriber, listeners);
     }
   }
 

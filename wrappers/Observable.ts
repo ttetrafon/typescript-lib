@@ -4,8 +4,8 @@ import { Listener } from "lib/types";
 export class Observable {
   private name: string;
   private value: any;
-  // TODO: listeners should listen for specific keys maybe, so not all updates propagate everywhere, and also components can have multiple listeners for specific properties set...
-  private listeners: Record<string, Set<Listener>>;
+  // { 'subscriber': { 'watched-path': callback } }
+  private listeners: Record<string, Record<string, Listener>>;
 
   constructor(name: string, value: any) {
     this.name = name;
@@ -32,14 +32,15 @@ export class Observable {
     return cloneDeep(v);
   }
 
-  set(path: string, value: any) {
-    if (path === this.name || !path) {
+  set(updatePath: string, value: any) {
+    if (updatePath === this.name) {
+      // update the full value
       this.value = value;
       this.notifyListeners(this.name);
       return;
     }
 
-    const parts: string[] = path.split(".");
+    const parts: string[] = updatePath.split(".");
     const l: number = parts.length;
     let wrapper: any = this.value;
     for (let i = 2; i < l - 1; i++) {
@@ -52,25 +53,47 @@ export class Observable {
       wrapper = (wrapper as Record<string, any>)[parts[i]];
     }
     wrapper[parts[1]] = value;
+    this.notifyListeners(updatePath);
   }
 
-  async subscribe(subscriber: string, listener: Listener) {
+  async subscribe(subscriber: string, listeners: Record<string, Listener>) {
     if (!this.listeners.hasOwnProperty(subscriber)) {
-      this.listeners[subscriber] = new Set();
+      this.listeners[subscriber] = {};
     }
-    this.listeners[subscriber].add(listener);
+
+    for (const [path, listener] of Object.entries(listeners)) {
+      this.listeners[subscriber][path] = listener;
+    }
   }
 
-  async unsubscribe(subscriber: string, listener: Listener) {
-    this.listeners[subscriber]?.delete(listener);
+  async unsubscribe(subscriber: string, paths?: string[]) {
+    if (!this.listeners[subscriber]) return;
+
+    if (!paths) {
+      delete this.listeners[subscriber];
+      return;
+    }
+
+    paths.forEach((p) => {
+      delete this.listeners[subscriber][p];
+    });
+
+    if (Object.keys(this.listeners[subscriber]).length === 0) delete this.listeners[subscriber];
   }
 
-  private notifyListeners(path: string) {
+  private notifyListeners(updatedPath: string) {
     // get the actual value
-    const v: any = this.get(path);
-    // notify subscribers
+    const v: any = this.get(updatedPath);
+    // notify subscribers if they indeed follow the path!
     for (const [sub, listeners] of Object.entries(this.listeners)) {
-      listeners.forEach(l => l(sub, path, v));
+      for (const [watchedPath, listener] of Object.entries(listeners)) {
+        if (
+          // if either of the paths is the root, notify
+          (!updatedPath.includes(".") || !updatedPath.includes("."))
+          // if either of the paths is a subpath of the other, notify
+          || (updatedPath.includes(watchedPath) || watchedPath.includes(updatedPath))
+        ) listener(sub, watchedPath, this.get(watchedPath));
+      }
     }
   }
 }
