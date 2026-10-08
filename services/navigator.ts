@@ -38,6 +38,7 @@ export class Navigator {
   }
 
   init() {
+    this._logger.debug("---> Navigator.init()");
     // Handle initial load
     this.navigateTo(window.location.pathname, false);
 
@@ -103,7 +104,7 @@ export class Navigator {
   };
 
   private navigateTo(path: string, pushState = true, stateData: object = {}) {
-    this._logger?.debug(`navigateTo(${path}, ${pushState}, ${JSON.stringify(stateData)})`);
+    this._logger.debug(`---> Navigator.navigateTo(${path}, ${pushState}, ${JSON.stringify(stateData)})`);
     if (!this.appRoot) return;
 
     const currentPath = window.location.pathname;
@@ -116,18 +117,18 @@ export class Navigator {
     }
     const newPathParts = newPath.split("/").filter(Boolean);
     const numberOfPathParts = newPathParts.length;
-    this._logger?.debug(`... new path = ${newPath}}`, newPathParts, numberOfPathParts);
+    this._logger.debug(`... new path = ${newPath}}`, newPathParts, numberOfPathParts);
 
     if (!this.appRoot) return;
     let parentContainer: HTMLElement = this.appRoot;
-    this._logger?.debug("... parentContainer:", parentContainer);
+    this._logger.debug("... parentContainer:", parentContainer);
 
     for (let i = 0; i < numberOfPathParts; i++) {
       let part = newPathParts[i];
       let route = this.getRoute(part, newPathParts);
 
       if (part != currentPathParts[i] || !parentContainer.firstChild) {
-        this._logger?.debug(`... updating part: ${part}`);
+        this._logger.debug(`... updating part: ${part}`);
         this.updateContent(parentContainer, route.content, route.navData);
       }
       parentContainer = "declareSubContainer" in (parentContainer.firstChild as object) ? (parentContainer.firstChild as any).declareSubContainer() : null;
@@ -143,17 +144,17 @@ export class Navigator {
   }
 
   public cleanContainers(newPathParts: string[], currentPathParts: string[]) {
-    this._logger?.debug(`---> cleanContainers(${JSON.stringify(newPathParts)}, ${JSON.stringify(currentPathParts)})`);
+    this._logger.debug(`---> Navigator.cleanContainers(${JSON.stringify(newPathParts)}, ${JSON.stringify(currentPathParts)})`);
     for (let newPart of newPathParts) {
       if (!currentPathParts.includes(newPart)) {
         delete this.subPageContainers[newPart];
       }
     }
-    this._logger?.debug(`... this.$subPageContainers (after cleaning):`, this.subPageContainers);
+    this._logger.debug(`... this.$subPageContainers (after cleaning):`, this.subPageContainers);
   }
 
   private createCanonicalUrl(path: string): string {
-    this._logger?.debug(`---> createCanonicalUrl(${path})`);
+    this._logger.debug(`---> Navigator.createCanonicalUrl(${path})`);
     return `${this.domain}/${path}`;
   }
 
@@ -188,7 +189,7 @@ export class Navigator {
   }
 
   private normalisePath(path: string): string {
-    this._logger?.debug(`---> normalisePath(${path})`);
+    this._logger.debug(`---> Navigator.normalisePath(${path})`);
     if (path == "/") return path;
     if (path == "") return "/";
     if (path[path.length - 1] == "/") path = path.slice(0, -1);
@@ -209,7 +210,7 @@ export class Navigator {
   }
 
   private updateContent(parentContainer: HTMLElement | null, content: string, navData?: Record<string, unknown>) {
-    this._logger?.debug(`--> updateContent()`, parentContainer, content, navData);
+    this._logger.debug(`--> Navigator.updateContent()`, parentContainer, content, navData);
     if (checkStringForNonExistence(content) || !parentContainer) return;
 
     parentContainer.innerHTML = content;
@@ -217,7 +218,7 @@ export class Navigator {
   }
 
   private updateMetadata(route: RouteInfo) {
-    this._logger?.debug(`---> updateMetadata()`, route);
+    this._logger.debug(`---> Navigator.updateMetadata()`, route);
     if (checkStringForExistence(route.title)) document.title = route.title;
     if (checkStringForExistence(route.description)) document.querySelector('meta[name="description"]')!.setAttribute('content', route.description);
     this.updateCanonicalUrl(route.canonicalUrl);

@@ -1,9 +1,8 @@
 import { cloneDeep } from "lodash";
 import { Logger } from "./logger";
-import { ObservableEntry, BroadcastMessage } from "lib/types";
-import { generalNamesLib } from "lib/data/enum";
+import { BroadcastMessage, Listener } from "lib/types";
+import { Observable } from "lib/wrappers/Observable";
 
-// TODO: improve state to support primitive as observable values, not only objects?
 export class State {
   static #instance: State;
   #logger: Logger;
@@ -12,7 +11,7 @@ export class State {
   private stateInitiatedAt: number;
   private requestedState: boolean = false;
 
-  private observables: Record<string, ObservableEntry> = {};
+  private observables: Record<string, Observable> = {};
   private observablesBroadcastChannel: BroadcastChannel;
 
   private constructor(appName: string) {
@@ -31,7 +30,7 @@ export class State {
       type: "request-state",
       time: this.stateInitiatedAt,
       name: "state",
-      data: {}
+      data: null
     });
   }
 
@@ -39,12 +38,12 @@ export class State {
     return this.#instance ??= new State(appName);
   }
 
-  private collectState(): Record<string, unknown> {
+  private collectState(): Record<string, any> {
     this.#logger.debug(`---> State.collectState()`);
-    let state: Record<string, unknown> = {};
+    let state: Record<string, any> = {};
     let keys = Object.keys(this.observables);
     for (let i = 0; i < keys.length; i++) {
-      state[keys[i]] = cloneDeep(this.observables[keys[i]].proxy);
+      state[keys[i]] = cloneDeep(this.observables[keys[i]].get(keys[i]));
     }
     return state;
   }
@@ -57,50 +56,24 @@ export class State {
   /**
    * Create a new observable
    * @param {string} observable: the observable's name
-   * @param {object} obj: the observable's value
-   * @param {boolean} broadcastCreation: if this is to be broadcast in the browser (using the broadcast channel); default=true
+   * @param {any} value: the observable's value
+   * @param {boolean} broadcastCreation: if this is to be broadcast within the browser (using the broadcast channel API); default=true
    */
-  createObservable(observable: string, obj: object, broadcastCreation: boolean = true) {
-    this.#logger.debug(`---> State.createObservable()`, observable, obj, broadcastCreation);
-    let onChange = (property: string, newValue: object | undefined) => {
-      this.#logger.debug(`Property '${property}' changed to ${JSON.stringify(newValue)} ... calling subscribers!:`, this.observables[observable].listeners);
-      Object.keys(this.observables[observable].listeners).forEach(subscriber => {
-        console.log("... calling subscriber:", subscriber, this.observables[observable].listeners[subscriber]);
-        this.observables[observable].listeners[subscriber](subscriber, property, newValue)
-      });
-    };
+  createObservable(observable: string, value: any, broadcastCreation: boolean = true) {
+    this.#logger.debug(`---> State.createObservable()`, observable, value, broadcastCreation);
 
-    let proxy = new Proxy(obj as Record<string, any>, {
-      get(target, prop, receiver) {
-        const value = target[prop as string];
-        if (value instanceof Function) {
-          return function (...args: unknown[]) {
-            return value.apply(State.#instance === receiver ? target : State.#instance, args);
-          };
-        }
-        return value;
-      },
-      set(target, prop, value, receiver) {
-        if (target[prop as string] !== value) {
-          onChange(prop as string, value);
-        }
-        return Reflect.set(target, prop, value, receiver);
-      },
-      deleteProperty(target, prop) {
-        onChange(prop as string, undefined);
-        return Reflect.deleteProperty(target, prop);
-      }
-    });
-
-    this.observables[observable] = {
-      proxy: proxy,
-      listeners: {}
+    if (this.observables.hasOwnProperty(observable)) {
+      // throw new EvalError(`Observable ${observable} already exists and should not be created multiple times; did you mean to update it?`);
+      console.log("... observables", this.observables);
+      return;
     }
+
+    this.observables[observable] = new Observable(observable, value);
 
     if (broadcastCreation) this.broadcastMessage({
       type: 'create-observable',
       name: observable,
-      data: obj,
+      data: value,
       time: new Date().getTime(),
     });
 
@@ -108,37 +81,25 @@ export class State {
   }
 
   /**
-   *
-   * @param {string} observable: the observable name
+   * Get an observable or a specific property value from it.
+   * @param {string} path: the name of the observable object, including a possible required path; e.g: "user", "user.username", "game-system.checks.difficulty", etc
+   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here; default = 0
    * @returns
    */
-  async getObservable<T>(observable: string): Promise<T> {
-    this.#logger.debug(`---> State.getObservable(${observable})`);
-    if (Object.prototype.hasOwnProperty.call(this.observables, observable)) {
-      return cloneDeep(this.observables[observable].proxy) as T;
-    } else {
-      return {} as T;
-    }
-  }
+  async getValueFromObservable<T>(path: string, retry: number = 0): Promise<T | null> {
+    this.#logger.debug(`---> State.getValueFromObservable(${path})`);
+    const dot: number = path.indexOf(".");
+    const observable: string = dot < 0 ? path : path.substring(0, dot);
 
-  /**
-   * Get a specific property value from an observable.
-   * @param {string} observable: the name of the observable object
-   * @param {string} prop: the property of the observable object
-   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here
-   * @returns
-   */
-  async getValueFromObservable<T>(observable: string, prop: string, retry: number = 0): Promise<T | null> {
-    this.#logger.debug(`---> State.getValueFromObservable(${observable}, ${prop})`);
-
-    if (Object.prototype.hasOwnProperty.call(this.observables, observable)) {
-      let value = this.observables[observable].proxy[prop];
-      return cloneDeep(value) as T;
+    const obs: Observable = this.observables[observable];
+    console.log("observable:", observable, obs);
+    if (obs) {
+      return obs.get(path);
     }
 
     if (retry < 10) {
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-      return this.getValueFromObservable(observable, prop, retry + 1);
+      return this.getValueFromObservable(path, retry + 1);
     }
 
     return null;
@@ -150,7 +111,7 @@ export class State {
 
     console.log("msg:", msg);
     switch (msg.type) {
-      case generalNamesLib.BROADCAST_TYPE_REQUEST_STATE.description: {
+      case "request-state": {
         // if the request is from an older page, ignore it
         if (msg.time < this.stateInitiatedAt) return;
 
@@ -163,7 +124,7 @@ export class State {
         });
         break;
       }
-      case generalNamesLib.BROADCAST_TYPE_RECEIVE_STATE.description: {
+      case "receive-state": {
         if (!this.requestedState) return;
 
         this.requestedState = false;
@@ -171,27 +132,24 @@ export class State {
 
         for (let i = 0; i < keys.length; i++) {
           let key: string = keys[i];
-          let data = (msg.data as Record<string, any>)[key];
 
           if (Object.prototype.hasOwnProperty.call(this.observables, key)) {
-            let props = Object.keys(data);
-            for (let j = 0; j < props.length; j++) {
-              let prop = props[j];
-              this.updateObservable(key, prop, data[prop], false);
-            }
+            this.updateObservable(key, msg.data[key], false);
           }
           else {
-            this.createObservable(key, data, false);
+            this.createObservable(key, msg.data[key], false);
           }
         }
         break;
       }
-      case generalNamesLib.BROADCAST_TYPE_CREATE_OBSERVABLE.description:
+      case "create-observable": {
         this.createObservable(msg.name, msg.data, false);
         break;
-      case generalNamesLib.BROADCAST_TYPE_UPDATE_OBSERVABLE.description:
-        if (msg.prop) this.updateObservable(msg.name, msg.prop, msg.data, false);
+      }
+      case "update-observable": {
+        this.updateObservable(msg.name, msg.data, false);
         break;
+      }
     }
   }
 
@@ -202,18 +160,18 @@ export class State {
    * @param {function} callback: to be called when the observable is updated - don't forget to use .bind(this)
    * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here
    */
-  async subscribeToObservable(observable: string, subscriber: string, callback: (subscriber: string, property: string, newValue: unknown) => void, retry: number = 0) {
+  async subscribeToObservable(observable: string, subscriber: string, callback: Listener, retry: number = 0) {
     this.#logger.debug(`---> subscribeToObservable(${observable}, ${subscriber})`);
-    if (Object.prototype.hasOwnProperty.call(this.observables, observable) && !Object.prototype.hasOwnProperty.call(this.observables[observable].listeners, subscriber)) {
-      this.observables[observable].listeners[subscriber] = callback;
+    const obs: Observable = this.observables[observable];
+    if (obs) {
+      obs.subscribe(subscriber, callback);
+      return;
     }
-    else {
-      // Try again because initial state may not be here yet and we will miss the subscriber...
-      if (retry < 10) {
-        setTimeout(async () => {
-          return await this.subscribeToObservable(observable, subscriber, callback, retry + 1);
-        }, 1000);
-      }
+
+    if (retry < 10) {
+      setTimeout(async () => {
+        return await this.subscribeToObservable(observable, subscriber, callback, retry + 1);
+      }, 1000);
     }
     this.#logger.debug(`... this.observables[${observable}]:`, this.observables[observable]);
   }
@@ -223,25 +181,36 @@ export class State {
    * @param {string} observable: the observable's name
    * @param {string} subscriber: the subscriber's name
    */
-  async unsubscribeFromObservable(observable: string, subscriber: string) {
-    if (Object.prototype.hasOwnProperty.call(this.observables, observable) && Object.prototype.hasOwnProperty.call(this.observables[observable].listeners, subscriber)) {
-      delete this.observables[observable].listeners[subscriber];
+  async unsubscribeFromObservable(observable: string, subscriber: string, callback: Listener) {
+    this.#logger.debug(`---> unsubscribeFromObservable(${observable}, ${subscriber})`);
+    const obs: Observable = this.observables[observable];
+    if (obs) {
+      obs.unsubscribe(subscriber, callback);
     }
   }
 
-  async updateObservable(observable: string, prop: string, value: any, broadcastChange = true) {
-    this.#logger.debug(`---> State.updateObservable(${observable}, ${prop})`, value);
-    if (Object.prototype.hasOwnProperty.call(this.observables, observable)) {
-      this.observables[observable].proxy[prop] = value;
+  /**
+   * Update an observable or some specific property within it.
+   * @param {string} path: the name of the observable object, including a possible required path; e.g: "user", "user.username", "game-system.checks.difficulty", etc
+   * @param {any} value: the updated value
+   * @param {boolean} broadcastChange: if this is to be broadcast within the browser (using the broadcast channel API); default=true
+   */
+  async updateObservable(path: string, value: any, broadcastChange: boolean = true) {
+    this.#logger.debug(`---> State.updateObservable(${path}`, value);
+    const dot: number = path.indexOf(".");
+    const observable: string = dot < 0 ? path : path.substring(0, dot);
 
-      if (broadcastChange) this.broadcastMessage({
-        type: "update-observable",
-        name: observable,
-        prop: prop,
-        data: value,
-        time: new Date().getTime(),
-      });
+    const obs: Observable = this.observables[observable];
+    if (obs) {
+      obs.set(path, value);
     }
-    this.#logger.debug(`... this.observables:`, this.observables);
+    this.#logger.debug(`... this.observables[${observable}] updated:`, this.observables[observable]);
+
+    if (broadcastChange) this.broadcastMessage({
+      type: "update-observable",
+      name: path,
+      data: value,
+      time: new Date().getTime(),
+    });
   }
 }

@@ -41,17 +41,13 @@ export type RouteInfo = {
 //   STATE   //
 ///////////////
 
-export type ObservableEntry = {
-  proxy: Record<string, object>;
-  listeners: Record<string, (subscriber: string, property: string, newValue: object | undefined) => void>;
-};
-
 export type BroadcastMessageType = 'create-observable' | 'receive-state' | 'request-state' | 'update-observable';
 
 export type BroadcastMessage = {
   type: BroadcastMessageType;
-  name: string,
-  data: object,
-  prop?: string,
-  time: number,
-}
+  name: string;
+  data: any;
+  time: number;
+};
+
+export type Listener = (subscriber: string, property: string, updatedValue: any) => void;
