@@ -1,7 +1,8 @@
 import { cloneDeep } from "lodash";
 import { Logger } from "./logger";
-import { BroadcastMessage, Listener } from "lib/types";
+import { BroadcastMessage, Listener, ObservableOptions } from "lib/types";
 import { Observable } from "lib/wrappers/Observable";
+import { LOCAL_STORAGE_STATE_KEY } from "lib/data/constants";
 
 export class State {
   static #instance: State;
@@ -13,6 +14,8 @@ export class State {
 
   private observables: Record<string, Observable> = {};
   private observablesBroadcastChannel: BroadcastChannel;
+
+  private keysInLocalStorage: Set<string> = new Set();
 
   private constructor(appName: string) {
     this.#logger = Logger.getInstance();
@@ -30,13 +33,18 @@ export class State {
       type: "request-state",
       time: this.stateInitiatedAt,
       name: "state",
-      data: null
+      data: null,
+      options: {}
     });
   }
 
   public static getInstance(appName: string): State {
     return this.#instance ??= new State(appName);
   }
+
+  ///////////////
+  //   STATE   //
+  ///////////////
 
   private collectState(): Record<string, any> {
     this.#logger.debug(`---> State.collectState()`);
@@ -48,61 +56,13 @@ export class State {
     return state;
   }
 
+  ////////////////////
+  //   BROADCASTS   //
+  ////////////////////
+
   private async broadcastMessage(msg: BroadcastMessage) {
     this.#logger.debug(`---> State.broadcastMessage()`, msg);
     this.observablesBroadcastChannel.postMessage(msg);
-  }
-
-  /**
-   * Create a new observable
-   * @param {string} observable: the observable's name
-   * @param {any} value: the observable's value
-   * @param {boolean} broadcastCreation: if this is to be broadcast within the browser (using the broadcast channel API); default=true
-   */
-  createObservable(observable: string, value: any, broadcastCreation: boolean = true) {
-    this.#logger.debug(`---> State.createObservable()`, observable, value, broadcastCreation);
-
-    if (this.observables.hasOwnProperty(observable)) {
-      // throw new EvalError(`Observable ${observable} already exists and should not be created multiple times; did you mean to update it?`);
-      console.log("... observables", this.observables);
-      return;
-    }
-
-    this.observables[observable] = new Observable(observable, value);
-
-    if (broadcastCreation) this.broadcastMessage({
-      type: 'create-observable',
-      name: observable,
-      data: value,
-      time: new Date().getTime(),
-    });
-
-    this.#logger.debug("... observables:", this.observables);
-  }
-
-  /**
-   * Get an observable or a specific property value from it.
-   * @param {string} path: the name of the observable object, including a possible required path; e.g: "user", "user.username", "game-system.checks.difficulty", etc
-   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here; default = 0
-   * @returns
-   */
-  async getValueFromObservable<T>(path: string, retry: number = 0): Promise<T | null> {
-    this.#logger.debug(`---> State.getValueFromObservable(${path})`);
-    const dot: number = path.indexOf(".");
-    const observable: string = dot < 0 ? path : path.substring(0, dot);
-
-    const obs: Observable = this.observables[observable];
-    console.log("observable:", observable, obs);
-    if (obs) {
-      return obs.get(path);
-    }
-
-    if (retry < 10) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-      return this.getValueFromObservable(path, retry + 1);
-    }
-
-    return null;
   }
 
   private async receiveBroadcastedMessage(event: MessageEvent) {
@@ -121,6 +81,7 @@ export class State {
           name: "state",
           data: this.collectState(),
           time: new Date().getTime(),
+          options: {}
         });
         break;
       }
@@ -137,13 +98,19 @@ export class State {
             this.updateObservable(key, msg.data[key], false);
           }
           else {
-            this.createObservable(key, msg.data[key], false);
+            this.createObservable(key, msg.data[key], {
+              broadcastCreation: false,
+              localStorage: msg.options.localStorage ?? false
+            });
           }
         }
         break;
       }
       case "create-observable": {
-        this.createObservable(msg.name, msg.data, false);
+        this.createObservable(msg.name, msg.data, {
+          broadcastCreation: false,
+          localStorage: msg.options.localStorage ?? false
+        });
         break;
       }
       case "update-observable": {
@@ -151,6 +118,81 @@ export class State {
         break;
       }
     }
+  }
+
+  /////////////////////
+  //   OBSERVABLES   //
+  /////////////////////
+
+  /**
+   * Create a new observable
+   * @param {string} observable: the observable's name
+   * @param {any} value: the observable's value
+   * @param {ObservableOptions} options: observable secondary options: 'broadcastCreation' determines if the creation will be broadcast to other tabs, 'localStorage' determines if the observable will persist in local storage; default = { broadcastCreation: true, localStorage: false }
+   */
+  createObservable(observable: string, value: any, options: ObservableOptions = { broadcastCreation: true, localStorage: false }) {
+    this.#logger.debug(`---> State.createObservable()`, observable, value, options);
+
+    if (this.observables.hasOwnProperty(observable)) {
+      this.#logger.warn("Observable creation failed as it already exists.");
+      return;
+    }
+
+    if (options.localStorage) {
+      const existingValue: any = this.retrieveFromLocalStorage(observable);
+      if (existingValue) {
+        // if the observable has been stored in local-storage, use its existing value instead
+        value = existingValue;
+      }
+      else {
+        this.addObservableInLocalStorage(observable, value);
+      }
+    }
+
+    this.observables[observable] = new Observable(observable, value);
+
+    if (options.broadcastCreation) this.broadcastMessage({
+      type: 'create-observable',
+      name: observable,
+      data: value,
+      time: new Date().getTime(),
+      options: {
+        broadcastCreation: false,
+        localStorage: false
+      }
+    });
+
+    this.#logger.debug("... observables:", this.observables);
+  }
+
+  /**
+   * Get an observable or a specific property value from it.
+   * @param {string} path: the name of the observable object, including a possible required path; e.g: "user", "user.username", "game-system.checks.difficulty", etc
+   * @param {number} retry: for internal, recursive usage, in case the initial state is not yet here; default = 0
+   * @returns
+   */
+  async getValueFromObservable<T>(path: string, retry: number = 0): Promise<T | null> {
+    this.#logger.debug(`---> State.getValueFromObservable(${path})`);
+    const observable: string = this.getObservableFromPath(path);
+
+    const obs: Observable = this.observables[observable];
+    console.log("observable:", observable, obs);
+    if (obs) {
+      return obs.get(path);
+    }
+
+    const localStorageValue: T = this.retrieveFromLocalStorage(observable) as T;
+    if (localStorageValue !== null) {
+      this.createObservable(observable, localStorageValue, { localStorage: false, broadcastCreation: true });
+      return localStorageValue;
+    }
+
+    if (retry < 10) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      return this.getValueFromObservable(path, retry + 1);
+    }
+
+    return null;
   }
 
   /**
@@ -197,8 +239,7 @@ export class State {
    */
   async updateObservable(path: string, value: any, broadcastChange: boolean = true) {
     this.#logger.debug(`---> State.updateObservable(${path}`, value);
-    const dot: number = path.indexOf(".");
-    const observable: string = dot < 0 ? path : path.substring(0, dot);
+    const observable: string = this.getObservableFromPath(path);
 
     const obs: Observable = this.observables[observable];
     if (obs) {
@@ -206,11 +247,63 @@ export class State {
     }
     this.#logger.debug(`... this.observables[${observable}] updated:`, this.observables[observable]);
 
+    if (this.isObservableInLocalStorage(observable)) {
+      this.storeInLocalStorage(observable, obs.get());
+    }
+
     if (broadcastChange) this.broadcastMessage({
       type: "update-observable",
       name: path,
       data: value,
       time: new Date().getTime(),
+      options: { localStorage: this.isObservableInLocalStorage(path) }
     });
+  }
+
+  ///////////////////////
+  //   LOCAL STORAGE   //
+  ///////////////////////
+
+  public addObservableInLocalStorage(observable: string, value: any) {
+    setTimeout(() => {
+      this.storeInLocalStorage(observable, value);
+      this.keysInLocalStorage.add(observable);
+      this.saveLocalStorageKeys();
+    }, 0);
+  }
+
+  public isObservableInLocalStorage(path: string): boolean {
+    const observable = this.getObservableFromPath(path);
+    return this.keysInLocalStorage.has(observable);
+  }
+
+  public retrieveFromLocalStorage(key: string): any {
+    const s: string | null = window.localStorage.getItem(key);
+    return s !== null ? JSON.parse(s) : null;
+  }
+
+  public storeInLocalStorage(key: string, value: any) {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  public loadLocalStorageKeys() {
+    const s: string | null = window.localStorage.getItem(LOCAL_STORAGE_STATE_KEY);
+    if (s) {
+      const keys: string[] = JSON.parse(s);
+      keys.forEach((k: string) => this.keysInLocalStorage.add(k));
+    }
+  }
+
+  public saveLocalStorageKeys() {
+    window.localStorage.setItem(LOCAL_STORAGE_STATE_KEY, JSON.stringify([...this.keysInLocalStorage]));
+  }
+
+  /////////////////
+  //   HELPERS   //
+  /////////////////
+
+  private getObservableFromPath(path: string): string {
+    const dot: number = path.indexOf(".");
+    return dot < 0 ? path : path.substring(0, dot);
   }
 }
