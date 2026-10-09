@@ -38,8 +38,11 @@ svg {
 input,
 button,
 textarea,
-select {
+select,
+a,
+a:visited {
   font: inherit;
+  color: inherit;
 }
 
 /* 8. Avoid text overflows */
