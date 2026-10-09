@@ -22,6 +22,7 @@ export class State {
 
     this.appName = appName;
     this.stateInitiatedAt = new Date().valueOf();
+    this.loadLocalStorageKeys();
 
     this.observablesBroadcastChannel = new BroadcastChannel(this.appName);
     this.observablesBroadcastChannel.onmessage = (event) => {
