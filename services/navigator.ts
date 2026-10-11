@@ -170,6 +170,8 @@ export class Navigator {
 
   private getRoute(route: string, pathParts: string[]): RouteInfo {
     let r = this.routes[route];
+    if (!r) return this.getRoute("404", []);
+
     return {
       content: this.createContentElement(r.content),
       title: r.title,
