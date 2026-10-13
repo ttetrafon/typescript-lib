@@ -1,5 +1,7 @@
-export function formatDayLabel(key: string) {
+export function formatDayLabel(key: string): string | null {
   const date = fromDateKey(key);
+  if (!date) return null;
+
   if (key === todayKey()) return "Today";
   return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
 }
@@ -8,8 +10,10 @@ export function formatMonthLabel(date: Date) {
   return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-export function fromDateKey(key: string) {
+export function fromDateKey(key: string): Date | null {
   const [year, month, day] = key.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
   return new Date(year, (month || 1) - 1, day || 1);
 }
 

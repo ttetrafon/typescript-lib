@@ -4,13 +4,15 @@
 
 export function allCombinations(arr: string[][]): string[] {
   if (arr.length == 1) {
-    return arr[0];
-  } else {
+    return arr[0] ?? [];
+  }
+  else {
     var result: string[] = [];
     var allCasesOfRest = allCombinations(arr.slice(1)); // recur with the rest of array
+    const firstArray = arr[0] ?? [];
     for (var i = 0; i < allCasesOfRest.length; i++) {
-      for (var j = 0; j < arr[0].length; j++) {
-        result.push(arr[0][j] + "," + allCasesOfRest[i]);
+      for (var j = 0; j < firstArray.length; j++) {
+        result.push(firstArray[j] + "," + allCasesOfRest[i]);
       }
     }
     return result;
